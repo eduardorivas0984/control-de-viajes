@@ -984,7 +984,14 @@ hr { border:none; border-top:1px solid var(--card); margin:12px 0; }
   </div>
 </div>
 
-<script src="app.js"></script>
+<script>
+// Cache-bust dinámico para forzar recarga del JS en cada nueva versión
+(function(){
+  var s = document.createElement('script');
+  s.src = 'app.js?v=' + '20260629c';
+  document.body.appendChild(s);
+})();
+</script>
 </body>
 </html>
 econdary" onclick="closeModal('modalEvento')">Cancelar</button>
