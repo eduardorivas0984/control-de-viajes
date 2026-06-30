@@ -355,6 +355,7 @@ function renderViajes() {
       <div class="viaje-actions">
         ${!isActive?`<button class="btn btn-primary btn-sm" onclick="setActiveViaje('${v.id}')">🎯 Activar</button>`:''}
         ${v.estado!=='completado'?`<button class="btn btn-secondary btn-sm" onclick="completarViaje('${v.id}')">✅ Completar</button>`:''}
+        <button class="btn btn-secondary btn-sm" onclick="abrirReporte('${v.id}')">📊 Reporte</button>
         <button class="btn btn-danger btn-sm" onclick="eliminarViaje('${v.id}')">🗑️</button>
       </div>
     </div>`;
@@ -908,6 +909,118 @@ function renderDashboard() {
         </div>`;
       }).join('')
     : '<p style="color:var(--gray);font-size:14px;padding:12px 0">Sin eventos próximos</p>';
+}
+
+// ===== REPORTE FINAL =====
+function abrirReporte(viajeId) {
+  const v = db.viajes.find(x => x.id === viajeId);
+  if (!v) return;
+  document.getElementById('reporteContent').innerHTML = generarReporteHTML(viajeId);
+  document.getElementById('modalReporte').style.display = 'flex';
+}
+
+function generarReporteHTML(viajeId) {
+  const v = db.viajes.find(x => x.id === viajeId);
+  if (!v) return '';
+  const gastos = getViajeGastos(viajeId);
+  const gastado = gastos.reduce((s, g) => s + (g.monto || 0), 0);
+  const pct = v.presupuesto ? Math.min(100, gastado / v.presupuesto * 100) : 0;
+  const { balances, transacciones } = calcularDeudas(viajeId);
+  const moneda = v.moneda;
+  const dias = Math.max(1, Math.ceil((new Date(v.fechaFin) - new Date(v.fechaInicio)) / (1000*60*60*24)) + 1);
+  const cats = {};
+  gastos.forEach(g => { cats[g.categoria] = (cats[g.categoria] || 0) + g.monto; });
+  const pagadoPorPersona = {};
+  v.participantes.forEach(pid => pagadoPorPersona[pid] = 0);
+  gastos.forEach(g => { pagadoPorPersona[g.pagadoPor] = (pagadoPorPersona[g.pagadoPor] || 0) + g.monto; });
+
+  return `
+  <div style="background:linear-gradient(135deg,var(--bg2),var(--bg3));border-radius:16px;padding:20px;margin-bottom:16px;border:1px solid var(--card)">
+    <div style="font-size:28px;margin-bottom:6px">✈️</div>
+    <div style="font-size:20px;font-weight:800;margin-bottom:4px">${v.nombre}</div>
+    <div style="font-size:13px;color:var(--gray);margin-bottom:12px">📍 ${v.destino||'Sin destino'} &nbsp;·&nbsp; ${fmtDate(v.fechaInicio)} → ${fmtDate(v.fechaFin)} &nbsp;·&nbsp; ${dias} días</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${v.participantes.map(pid=>{const u=getUser(pid);return u?`<div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600"><div style="width:20px;height:20px;border-radius:50%;background:${u.color};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">${u.nombre.charAt(0)}</div>${u.nombre}</div>`:'';}).join('')}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">💰 Resumen financiero</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div style="background:var(--bg);border-radius:10px;padding:12px">
+        <div style="font-size:11px;color:var(--gray);margin-bottom:3px">Presupuesto</div>
+        <div style="font-size:17px;font-weight:800">${fmtMoney(v.presupuesto,moneda)}</div>
+      </div>
+      <div style="background:var(--bg);border-radius:10px;padding:12px">
+        <div style="font-size:11px;color:var(--gray);margin-bottom:3px">Total gastado</div>
+        <div style="font-size:17px;font-weight:800;color:${pct>=90?'var(--danger)':pct>=70?'var(--warning)':'var(--success)'}">${fmtMoney(gastado,moneda)}</div>
+      </div>
+      <div style="background:var(--bg);border-radius:10px;padding:12px">
+        <div style="font-size:11px;color:var(--gray);margin-bottom:3px">Disponible</div>
+        <div style="font-size:17px;font-weight:800;color:${v.presupuesto-gastado<0?'var(--danger)':'var(--white)'}">${fmtMoney(v.presupuesto-gastado,moneda)}</div>
+      </div>
+      <div style="background:var(--bg);border-radius:10px;padding:12px">
+        <div style="font-size:11px;color:var(--gray);margin-bottom:3px">Uso del presupuesto</div>
+        <div style="font-size:17px;font-weight:800">${pct.toFixed(1)}%</div>
+      </div>
+    </div>
+    <div class="progress-wrap" style="height:10px"><div class="progress-bar ${pctClass(pct)}" style="width:${pct}%"></div></div>
+    ${gastos.length?`<div style="font-size:12px;color:var(--gray);margin-top:8px;text-align:center">${gastos.length} gastos &nbsp;·&nbsp; promedio ${fmtMoney(gastado/gastos.length,moneda)}/gasto &nbsp;·&nbsp; ${fmtMoney(gastado/dias,moneda)}/día</div>`:''}
+  </div>
+
+  ${Object.keys(cats).length?`<div class="card">
+    <div class="card-title">📊 Gasto por categoría</div>
+    ${Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([cat,tot])=>{const p=gastado>0?(tot/gastado*100):0;return `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:13px;font-weight:600">${catIcon(cat)} ${cat.charAt(0).toUpperCase()+cat.slice(1)}</span><span style="font-size:13px;font-weight:700">${fmtMoney(tot,moneda)} <span style="color:var(--gray);font-size:11px">(${p.toFixed(0)}%)</span></span></div><div style="background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden"><div style="width:${p}%;height:100%;background:var(--orange);border-radius:6px"></div></div></div>`;}).join('')}
+  </div>`:''}
+
+  <div class="card">
+    <div class="card-title">👥 Balance por participante</div>
+    ${v.participantes.map(pid=>{
+      const u=getUser(pid); if(!u) return '';
+      const pagado=pagadoPorPersona[pid]||0;
+      const balance=Math.round((balances[pid]||0)*100)/100;
+      const cuota=gastos.reduce((s,g)=>g.divididoEntre.includes(pid)?s+g.monto/g.divididoEntre.length:s,0);
+      return `<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--bg)">
+        <div style="width:40px;height:40px;border-radius:50%;background:${u.color};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0">${u.nombre.charAt(0).toUpperCase()}</div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:700">${u.nombre}</div>
+          <div style="font-size:12px;color:var(--gray);margin-top:2px">Pagó: ${fmtMoney(pagado,moneda)} &nbsp;·&nbsp; Le corresponde: ${fmtMoney(cuota,moneda)}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:18px;font-weight:800;color:${balance>0?'var(--success)':balance<0?'var(--danger)':'var(--gray)'}">${balance>0?'+':''}${fmtMoney(balance,moneda)}</div>
+          <div style="font-size:11px;color:var(--gray);margin-top:2px">${balance>0?'Le deben':balance<0?'Debe':'Al corriente'}</div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>
+
+  <div class="card">
+    <div class="card-title">💸 Liquidación de deudas</div>
+    ${transacciones.length===0
+      ?`<div style="text-align:center;padding:16px 0"><div style="font-size:36px">🎉</div><div style="font-weight:700;color:var(--success);margin-top:8px;font-size:15px">¡Todos al corriente!</div><div style="font-size:13px;color:var(--gray);margin-top:4px">No hay deudas pendientes</div></div>`
+      :transacciones.map(tx=>{const de=getUser(tx.de),a=getUser(tx.a);return `<div style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--bg)"><div style="display:flex;align-items:center;gap:8px;flex:1"><div style="width:36px;height:36px;border-radius:50%;background:${de?.color};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">${de?.nombre?.charAt(0)||'?'}</div><div><div style="font-size:13px;font-weight:700">${de?.nombre||'?'}</div><div style="font-size:11px;color:var(--gray)">le paga a ${a?.nombre||'?'}</div></div></div><div style="font-size:13px;color:var(--gray)">→</div><div style="width:36px;height:36px;border-radius:50%;background:${a?.color};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">${a?.nombre?.charAt(0)||'?'}</div><div style="font-size:18px;font-weight:800;color:var(--orange);min-width:80px;text-align:right">${fmtMoney(tx.monto,moneda)}</div></div>`;}).join('')}
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 Detalle completo de gastos</div>
+    ${gastos.length===0
+      ?`<p style="color:var(--gray);font-size:14px;padding:12px 0">Sin gastos registrados</p>`
+      :[...gastos].sort((a,b)=>new Date(a.fecha)-new Date(b.fecha)).map(g=>{
+        const pag=getUser(g.pagadoPor);
+        const parts=g.divididoEntre.map(pid=>getUser(pid)?.nombre).filter(Boolean);
+        const cuota=g.monto/g.divididoEntre.length;
+        return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--bg)">
+          <div class="list-icon-box cat-bg-${g.categoria}" style="width:36px;height:36px;border-radius:8px;font-size:15px;flex-shrink:0;margin-top:2px">${catIcon(g.categoria)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${g.descripcion}</div>
+            <div style="font-size:11px;color:var(--gray);margin-top:2px">Pagó: ${pag?.nombre||'?'} &nbsp;·&nbsp; ${fmtDate(g.fecha)}</div>
+            <div style="font-size:11px;color:var(--orange);margin-top:1px">${fmtMoney(cuota,g.moneda)} c/u &nbsp;·&nbsp; Entre: ${parts.join(', ')}</div>
+          </div>
+          <div style="font-size:14px;font-weight:700;flex-shrink:0;text-align:right;padding-top:2px">${fmtMoney(g.monto,g.moneda)}</div>
+        </div>`;
+      }).join('')}
+    ${gastos.length?`<div style="padding:12px 0 4px;text-align:right;font-size:16px;font-weight:800;color:var(--white)">TOTAL: ${fmtMoney(gastado,moneda)}</div>`:''}
+  </div>`;
 }
 
 // ===== INIT =====

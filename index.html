@@ -673,6 +673,7 @@ hr { border:none; border-top:1px solid var(--card); margin:12px 0; }
   <div id="drawerOverlay" onclick="closeDrawer()">
     <div id="drawer">
       <div class="drawer-handle"></div>
+      <div class="drawer-item" onclick="closeDrawer();if(activeViajeId)abrirReporte(activeViajeId);else toast('Selecciona un viaje primero','error')"><span class="di-icon">📊</span>Reporte del viaje</div>
       <div class="drawer-item" onclick="closeDrawer();navTo('deudas')"><span class="di-icon">⚖️</span>Balance de Deudas</div>
       <div class="drawer-item" onclick="closeDrawer();navTo('documentos')"><span class="di-icon">📄</span>Documentos</div>
       <div class="drawer-divider"></div>
@@ -968,6 +969,18 @@ hr { border:none; border-top:1px solid var(--card); margin:12px 0; }
       <button class="modal-close" onclick="closeModal('modalVerDoc')">×</button>
     </div>
     <div class="modal-body" id="verDocBody" style="padding:0;min-height:300px"></div>
+  </div>
+</div>
+
+<!-- Modal Reporte Final -->
+<div class="modal-overlay" id="modalReporte" onclick="closeOnOverlay(event,'modalReporte')">
+  <div class="modal" style="max-height:92vh">
+    <div class="modal-handle"></div>
+    <div class="modal-header" style="position:sticky;top:0;z-index:2;background:var(--bg2)">
+      <div class="modal-title">📊 Reporte del viaje</div>
+      <button class="modal-close" onclick="closeModal('modalReporte')">×</button>
+    </div>
+    <div class="modal-body" id="reporteContent" style="padding:16px 20px 24px"></div>
   </div>
 </div>
 
