@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#FF6B35">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Viajes">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>Control de Viajes</title>
+<style>
+/* ===== VARIABLES ===== */
+:root {
+  --bg: #0a1628; --bg2: #0d2040; --bg3: #132a52;
+  --card: #1a3460; --card2: #1e3d70;
+  --orange: #FF6B35; --orange2: #ff8c5a;
+  --white: #FFFFFF; --gray: #8ba0bf; --gray2: #c5d3e8;
+  --success: #2ecc71; --danger: #e74c3c; --warning: #f39c12;
+  --radius: 14px; --radius-sm: 10px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.45);
+  --shadow-sm: 0 2px 10px rgba(0,0,0,0.3);
+  --nav-h: 64px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html { height:100%; overflow:hidden; }
+body {
+  font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  background:var(--bg); color:var(--white); height:100%;
+  overflow:hidden; overscroll-behavior:none;
+}
+::-webkit-scrollbar { width:4px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--card); border-radius:2px; }
+
+/* ===== LOGIN ===== */
+#loginScreen {
+  position:fixed; inset:0; background:var(--bg);
+  display:flex; align-items:center; justify-content:center;
+  z-index:1000; padding:20px;
+  padding-top:calc(20px + var(--safe-t));
+  padding-bottom:calc(20px + var(--safe-b));
+}
+.login-box {
+  background:var(--bg2); border-radius:24px; padding:36px 28px;
+  width:100%; max-width:400px; border:1px solid var(--card);
+  box-shadow:var(--shadow); text-align:center;
+}
+.login-logo { font-size:56px; margin-bottom:8px; }
+.login-title { font-size:26px; font-weight:800; color:var(--orange); margin-bottom:4px; }
+.login-sub { color:var(--gray); font-size:14px; margin-bottom:28px; }
+.user-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(90px,1fr)); gap:12px; margin-bottom:20px; }
+.user-card-login {
+  background:var(--card); border-radius:var(--radius); padding:14px 8px;
+  cursor:pointer; transition:all 0.2s; border:2px solid transparent;
+  -webkit-user-select:none; user-select:none;
+}
+.user-card-login:active { transform:scale(0.95); }
+.user-avatar-big {
+  width:50px; height:50px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; font-size:22px; font-weight:700; margin:0 auto 8px;
+}
+.user-name-login { font-size:12px; font-weight:600; }
+.btn-new-user {
+  background:transparent; border:2px dashed var(--gray); color:var(--gray);
+  padding:12px; border-radius:var(--radius-sm); font-size:14px;
+  transition:all 0.2s; width:100%; font-family:inherit;
+}
+.btn-new-user:active { background:rgba(255,107,53,0.1); border-color:var(--orange); color:var(--orange); }
+
+/* ===== APP SHELL ===== */
+#app { display:none; height:100%; flex-direction:column; }
+
+/* ===== TOP BAR ===== */
+#topBar {
+  background:var(--bg2); border-bottom:1px solid var(--card);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 16px;
+  padding-top:var(--safe-t);
+  height:calc(56px + var(--safe-t));
+  flex-shrink:0; z-index:100;
+}
+.topbar-left { display:flex; align-items:center; gap:10px; }
+.topbar-avatar {
+  width:34px; height:34px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; font-size:15px; font-weight:700; cursor:pointer;
+  transition:opacity 0.2s;
+}
+.topbar-avatar:active { opacity:0.7; }
+.topbar-title { font-size:17px; font-weight:700; }
+.topbar-title span { color:var(--orange); }
+.topbar-right { display:flex; align-items:center; gap:8px; }
+.topbar-viaje {
+  background:rgba(255,107,53,0.12); color:var(--orange); border:1px solid rgba(255,107,53,0.3);
+  padding:5px 12px; border-radius:20px; font-size:12px; font-weight:600;
+  cursor:pointer; max-width:140px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+
+/* ===== MAIN SCROLL ===== */
+#main {
+  flex:1; overflow-y:auto; overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+}
+
+/* ===== PAGES ===== */
+.page { display:none; min-height:100%; }
+.page.active { display:block; }
+.page-content {
+  padding:20px 16px;
+  padding-bottom:calc(var(--nav-h) + var(--safe-b) + 24px);
+}
+
+/* ===== BOTTOM NAV ===== */
+#bottomNav {
+  position:fixed; bottom:0; left:0; right:0;
+  background:var(--bg2); border-top:1px solid var(--card);
+  display:flex; align-items:stretch;
+  height:calc(var(--nav-h) + var(--safe-b));
+  padding-bottom:var(--safe-b);
+  z-index:200; backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+.bnav-item {
+  flex:1; display:flex; flex-direction:column; align-items:center;
+  justify-content:center; gap:3px; cursor:pointer; color:var(--gray);
+  transition:color 0.15s; position:relative; padding:8px 4px 4px;
+  -webkit-user-select:none; user-select:none;
+}
+.bnav-item:active { opacity:0.7; }
+.bnav-item.active { color:var(--orange); }
+.bnav-item .bnav-icon { font-size:22px; line-height:1; }
+.bnav-item .bnav-label { font-size:10px; font-weight:600; }
+.bnav-item .bnav-badge {
+  position:absolute; top:6px; right:calc(50% - 18px);
+  background:var(--danger); color:white; font-size:9px; font-weight:700;
+  padding:1px 5px; border-radius:10px; min-width:16px; text-align:center;
+}
+
+/* ===== BOTTOM DRAWER (Más) ===== */
+#drawerOverlay {
+  position:fixed; inset:0; background:rgba(0,0,0,0.6);
+  z-index:300; display:none; backdrop-filter:blur(2px);
+}
+#drawer {
+  position:fixed; bottom:0; left:0; right:0;
+  background:var(--bg2); border-radius:20px 20px 0 0;
+  padding:8px 0 calc(16px + var(--safe-b));
+  z-index:301; transform:translateY(100%);
+  transition:transform 0.3s cubic-bezier(0.32,0.72,0,1);
+  border-top:1px solid var(--card);
+}
+#drawer.open { transform:translateY(0); }
+.drawer-handle {
+  width:40px; height:4px; background:var(--card); border-radius:2px;
+  margin:8px auto 16px;
+}
+.drawer-item {
+  display:flex; align-items:center; gap:14px; padding:14px 24px;
+  cursor:pointer; font-size:15px; color:var(--gray2); font-weight:500;
+  transition:background 0.15s;
+}
+.drawer-item:active { background:var(--card); }
+.drawer-item .di-icon { font-size:22px; width:28px; text-align:center; }
+.drawer-divider { height:1px; background:var(--card); margin:4px 0; }
+
+/* ===== FAB ===== */
+#fab {
+  position:fixed; right:16px;
+  bottom:calc(var(--nav-h) + var(--safe-b) + 16px);
+  width:56px; height:56px; background:var(--orange); border-radius:28px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:28px; line-height:1; cursor:pointer; z-index:150;
+  box-shadow:0 4px 16px rgba(255,107,53,0.5);
+  transition:transform 0.2s, box-shadow 0.2s;
+  -webkit-user-select:none; user-select:none;
+  border:none; color:white; font-family:inherit;
+}
+#fab:active { transform:scale(0.92); box-shadow:0 2px 8px rgba(255,107,53,0.4); }
+#fab.hidden { display:none; }
+
+/* ===== CARDS ===== */
+.card {
+  background:var(--card); border-radius:var(--radius); padding:16px;
+  border:1px solid rgba(255,255,255,0.06); margin-bottom:12px;
+}
+.card-title { font-size:12px; font-weight:700; color:var(--gray); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:12px; }
+
+/* ===== STATS ===== */
+.stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+.stat-card {
+  background:var(--card); border-radius:var(--radius); padding:14px 12px;
+  border:1px solid rgba(255,255,255,0.06);
+}
+.stat-icon { font-size:20px; margin-bottom:6px; }
+.stat-value { font-size:20px; font-weight:800; line-height:1.1; }
+.stat-label { font-size:11px; color:var(--gray); margin-top:3px; }
+.stat-sub { font-size:11px; color:var(--gray); margin-top:4px; }
+
+/* ===== PROGRESS ===== */
+.progress-wrap { background:rgba(255,255,255,0.08); border-radius:10px; height:8px; overflow:hidden; margin:8px 0; }
+.progress-bar { height:100%; border-radius:10px; transition:width 0.4s; }
+.progress-bar.green { background:var(--success); }
+.progress-bar.orange { background:var(--orange); }
+.progress-bar.red { background:var(--danger); }
+
+/* ===== SECTION HEADER ===== */
+.section-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:12px; margin-top:20px;
+}
+.section-title { font-size:16px; font-weight:700; }
+.section-action { font-size:13px; color:var(--orange); font-weight:600; cursor:pointer; }
+
+/* ===== LIST ITEMS ===== */
+.list-item {
+  background:var(--card); border-radius:var(--radius); padding:14px;
+  border:1px solid rgba(255,255,255,0.06); margin-bottom:8px;
+  display:flex; align-items:center; gap:12px;
+}
+.list-icon-box {
+  width:44px; height:44px; border-radius:12px; display:flex;
+  align-items:center; justify-content:center; font-size:20px; flex-shrink:0;
+}
+.list-main { flex:1; min-width:0; }
+.list-title { font-size:15px; font-weight:600; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.list-sub { font-size:12px; color:var(--gray); }
+.list-right { text-align:right; flex-shrink:0; }
+.list-amount { font-size:16px; font-weight:700; }
+.list-meta { font-size:11px; color:var(--gray); margin-top:2px; }
+
+/* ===== BADGES ===== */
+.badge {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700;
+}
+.badge-success { background:rgba(46,204,113,0.15); color:var(--success); }
+.badge-warning { background:rgba(243,156,18,0.15); color:var(--warning); }
+.badge-danger { background:rgba(231,76,60,0.15); color:var(--danger); }
+.badge-orange { background:rgba(255,107,53,0.15); color:var(--orange); }
+.badge-blue { background:rgba(52,152,219,0.15); color:#5dade2; }
+.badge-gray { background:rgba(139,160,191,0.15); color:var(--gray); }
+
+/* ===== CATEGORY COLORS ===== */
+.cat-bg-comida { background:rgba(255,107,53,0.15); }
+.cat-bg-transporte { background:rgba(52,152,219,0.15); }
+.cat-bg-hospedaje { background:rgba(155,89,182,0.15); }
+.cat-bg-vuelos { background:rgba(41,128,185,0.15); }
+.cat-bg-golosinas { background:rgba(231,76,60,0.15); }
+.cat-bg-entretenimiento { background:rgba(46,204,113,0.15); }
+.cat-bg-tren { background:rgba(26,188,156,0.15); }
+.cat-bg-vehiculo { background:rgba(243,156,18,0.15); }
+.cat-bg-otro { background:rgba(139,160,191,0.1); }
+
+/* ===== VIAJE CARD ===== */
+.viaje-card {
+  background:var(--card); border-radius:var(--radius); padding:16px;
+  border:1px solid rgba(255,255,255,0.06); margin-bottom:12px;
+}
+.viaje-card.active-viaje { border-color:var(--orange); }
+.viaje-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; gap:8px; }
+.viaje-name { font-size:16px; font-weight:700; }
+.viaje-dest { font-size:13px; color:var(--gray); margin-top:2px; }
+.viaje-nums { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin:12px 0; }
+.viaje-num-label { font-size:10px; color:var(--gray); margin-bottom:2px; }
+.viaje-num-val { font-size:14px; font-weight:700; }
+.viaje-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+.participantes-row { display:flex; align-items:center; gap:6px; margin-top:10px; flex-wrap:wrap; }
+.p-avatar { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; }
+
+/* ===== DEBT CARDS ===== */
+.debt-card {
+  background:var(--card); border-radius:var(--radius); padding:14px;
+  border:1px solid rgba(255,255,255,0.06); margin-bottom:8px;
+  display:flex; align-items:center; gap:10px;
+}
+.debt-avatars { display:flex; align-items:center; gap:-4px; }
+.debt-info { flex:1; min-width:0; }
+.debt-title { font-size:14px; font-weight:600; margin-bottom:2px; }
+.debt-sub { font-size:12px; color:var(--gray); }
+.debt-amount { font-size:18px; font-weight:800; color:var(--orange); white-space:nowrap; }
+
+/* ===== EVENTS ===== */
+.event-card {
+  background:var(--card); border-radius:var(--radius); padding:14px;
+  border-left:4px solid var(--orange); margin-bottom:10px;
+  display:flex; gap:12px;
+}
+.event-card.pasado { border-left-color:var(--gray); opacity:0.65; }
+.event-cal {
+  background:var(--bg); border-radius:10px; padding:8px 10px;
+  text-align:center; min-width:52px; flex-shrink:0;
+}
+.event-day { font-size:22px; font-weight:800; color:var(--orange); line-height:1; }
+.event-month { font-size:10px; color:var(--gray); text-transform:uppercase; }
+.event-body { flex:1; min-width:0; }
+.event-title { font-size:15px; font-weight:700; margin-bottom:4px; }
+.event-detail { font-size:12px; color:var(--gray); margin-top:2px; }
+.event-time { font-size:12px; color:var(--orange); margin-top:4px; font-weight:600; }
+.event-actions { display:flex; flex-direction:column; gap:6px; align-items:flex-end; flex-shrink:0; }
+
+/* ===== DOCS ===== */
+.doc-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.doc-card {
+  background:var(--card); border-radius:var(--radius); padding:14px;
+  border:1px solid rgba(255,255,255,0.06); cursor:pointer;
+  transition:border-color 0.2s;
+}
+.doc-card:active { border-color:var(--orange); opacity:0.9; }
+.doc-icon { font-size:32px; margin-bottom:8px; }
+.doc-name { font-size:13px; font-weight:600; margin-bottom:4px; word-break:break-word; line-height:1.3; }
+.doc-meta { font-size:11px; color:var(--gray); }
+
+/* ===== BUTTONS ===== */
+.btn {
+  display:inline-flex; align-items:center; gap:6px; padding:10px 18px;
+  border-radius:var(--radius-sm); font-size:14px; font-weight:600;
+  border:none; transition:all 0.15s; cursor:pointer; font-family:inherit;
+  -webkit-user-select:none; user-select:none;
+}
+.btn:active { opacity:0.8; transform:scale(0.97); }
+.btn-primary { background:var(--orange); color:white; }
+.btn-secondary { background:var(--card2); color:var(--gray2); }
+.btn-danger { background:var(--danger); color:white; }
+.btn-success { background:var(--success); color:white; }
+.btn-sm { padding:7px 14px; font-size:13px; }
+.btn-xs { padding:5px 10px; font-size:12px; border-radius:8px; }
+.btn-full { width:100%; justify-content:center; }
+
+/* ===== FORMS ===== */
+.form-group { margin-bottom:14px; }
+.form-label { display:block; font-size:13px; font-weight:600; color:var(--gray2); margin-bottom:6px; }
+.form-control {
+  width:100%; background:var(--bg); border:1.5px solid var(--card);
+  color:var(--white); padding:12px 14px; border-radius:var(--radius-sm);
+  font-size:16px; /* 16px evita zoom en iOS */ outline:none;
+  transition:border-color 0.2s; -webkit-appearance:none; appearance:none;
+}
+.form-control:focus { border-color:var(--orange); }
+.form-control::placeholder { color:var(--gray); }
+select.form-control { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%238ba0bf' d='M6 8L0 0h12z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 14px center; padding-right:36px; }
+select.form-control option { background:var(--bg2); color:var(--white); font-size:16px; }
+textarea.form-control { resize:vertical; min-height:80px; }
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.form-hint { font-size:11px; color:var(--gray); margin-top:4px; }
+
+/* ===== PARTICIPANT CHIPS ===== */
+.participant-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+.participant-chip {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:8px 14px; border-radius:20px; font-size:13px; font-weight:600;
+  cursor:pointer; border:2px solid var(--card); background:var(--card);
+  transition:all 0.15s; -webkit-user-select:none; user-select:none;
+  min-height:40px;
+}
+.participant-chip:active { opacity:0.8; }
+.participant-chip.selected { border-color:var(--orange); background:rgba(255,107,53,0.15); }
+.participant-dot { width:10px; height:10px; border-radius:50%; }
+
+/* ===== TABS ===== */
+.tabs-scroll {
+  display:flex; gap:6px; overflow-x:auto; padding-bottom:4px;
+  margin-bottom:14px; -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+}
+.tabs-scroll::-webkit-scrollbar { display:none; }
+.tab-pill {
+  flex-shrink:0; padding:8px 16px; border-radius:20px; cursor:pointer;
+  font-size:13px; font-weight:600; color:var(--gray); background:var(--card);
+  border:none; font-family:inherit; white-space:nowrap;
+  -webkit-user-select:none; user-select:none;
+}
+.tab-pill.active { background:var(--orange); color:white; }
+.tab-pill:active { opacity:0.8; }
+
+/* ===== EMPTY STATE ===== */
+.empty-state { text-align:center; padding:48px 24px; color:var(--gray); }
+.empty-state .es-icon { font-size:56px; margin-bottom:14px; opacity:0.5; }
+.empty-state h3 { font-size:18px; color:var(--gray2); margin-bottom:6px; }
+.empty-state p { font-size:14px; margin-bottom:20px; line-height:1.5; }
+
+/* ===== MODALES (bottom sheet en móvil) ===== */
+.modal-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,0.7);
+  display:none; z-index:1100; align-items:flex-end;
+  backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
+}
+.modal-overlay.centered { align-items:center; padding:16px; }
+.modal {
+  background:var(--bg2); border-radius:20px 20px 0 0;
+  width:100%; max-height:92vh; overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  animation:slideUp 0.3s cubic-bezier(0.32,0.72,0,1);
+  padding-bottom:var(--safe-b);
+}
+.modal-overlay.centered .modal {
+  border-radius:20px; max-width:560px; max-height:85vh;
+  animation:fadeIn 0.2s ease;
+}
+@keyframes slideUp { from { transform:translateY(100%); } to { transform:translateY(0); } }
+@keyframes fadeIn { from { opacity:0; transform:scale(0.95); } to { opacity:1; transform:scale(1); } }
+.modal-handle { width:40px; height:4px; background:var(--card); border-radius:2px; margin:10px auto 4px; }
+.modal-header {
+  padding:16px 20px 12px; border-bottom:1px solid var(--card);
+  display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; background:var(--bg2); z-index:1;
+}
+.modal-title { font-size:17px; font-weight:700; }
+.modal-close { background:none; border:none; color:var(--gray); font-size:24px; cursor:pointer; padding:0 4px; line-height:1; }
+.modal-body { padding:16px 20px; }
+.modal-footer { padding:12px 20px 16px; border-top:1px solid var(--card); display:flex; gap:10px; }
+.modal-footer .btn { flex:1; justify-content:center; }
+
+/* ===== UPLOAD ZONE ===== */
+.upload-zone {
+  border:2px dashed var(--card); border-radius:var(--radius); padding:24px;
+  text-align:center; cursor:pointer; background:var(--bg); transition:all 0.2s;
+}
+.upload-zone:active { border-color:var(--orange); background:rgba(255,107,53,0.05); }
+.upload-zone p { color:var(--gray); font-size:14px; margin-top:6px; }
+
+/* ===== BALANCE CARDS ===== */
+.balance-card {
+  background:var(--bg); border-radius:var(--radius-sm); padding:14px;
+  border:1px solid rgba(255,255,255,0.06);
+}
+.balance-positive { border-color:rgba(46,204,113,0.3); }
+.balance-negative { border-color:rgba(231,76,60,0.3); }
+
+/* ===== TOAST ===== */
+#toast {
+  position:fixed; bottom:calc(var(--nav-h) + var(--safe-b) + 12px);
+  left:50%; transform:translateX(-50%); z-index:1300;
+  display:flex; flex-direction:column; gap:8px; width:calc(100% - 32px); max-width:380px;
+}
+.toast-item {
+  background:var(--card2); border-radius:12px; padding:12px 16px;
+  box-shadow:var(--shadow); font-size:14px; display:flex; align-items:center; gap:10px;
+  border-left:4px solid var(--orange); animation:toastIn 0.3s ease;
+}
+.toast-item.success { border-left-color:var(--success); }
+.toast-item.error { border-left-color:var(--danger); }
+@keyframes toastIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+
+/* ===== COLOR PICKER ===== */
+.color-picker { display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; }
+.color-swatch {
+  width:36px; height:36px; border-radius:50%; cursor:pointer;
+  border:3px solid transparent; transition:border-color 0.15s; flex-shrink:0;
+}
+.color-swatch.selected, .color-swatch:active { border-color:white; }
+
+/* ===== MISC ===== */
+.text-orange { color:var(--orange); }
+.text-success { color:var(--success); }
+.text-danger { color:var(--danger); }
+.text-gray { color:var(--gray); }
+.font-bold { font-weight:700; }
+.mt-3 { margin-top:12px; }
+.mt-4 { margin-top:16px; }
+.mb-3 { margin-bottom:12px; }
+.flex { display:flex; }
+.flex-between { display:flex; align-items:center; justify-content:space-between; }
+.flex-center { display:flex; align-items:center; }
+.gap-2 { gap:8px; }
+.w-full { width:100%; }
+hr { border:none; border-top:1px solid var(--card); margin:12px 0; }
+
+/* ===== DESKTOP ADAPTATION ===== */
+@media (min-width: 640px) {
+  .modal { border-radius:20px; max-width:560px; margin:auto; animation:fadeIn 0.2s ease; }
+  .modal-overlay { align-items:center; padding:20px; }
+  .modal-handle { display:none; }
+  .doc-grid { grid-template-columns:repeat(3, 1fr); }
+  .page-content { padding:24px 24px calc(var(--nav-h) + var(--safe-b) + 24px); }
+  .stats-grid { grid-template-columns:repeat(4, 1fr); }
+}
+@media (min-width: 1024px) {
+  #app { flex-direction:row; }
+  #sidebar-desktop {
+    display:flex; flex-direction:column; width:220px;
+    background:var(--bg2); border-right:1px solid var(--card);
+    height:100%; flex-shrink:0; overflow-y:auto;
+    padding-top:var(--safe-t);
+  }
+  #bottomNav { display:none; }
+  #main { overflow-y:auto; height:100%; }
+  #topBar { display:none; }
+  .page-content { padding:24px 28px 24px; }
+  #fab { bottom:24px; right:24px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== LOGIN ===== -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">✈️</div>
+    <div class="login-title">Control de Viajes</div>
+
+    <!-- Vista: seleccionar usuario -->
+    <div id="loginViewSelect">
+      <div class="login-sub">¿Quién eres tú?</div>
+      <div class="user-grid" id="loginUserGrid"></div>
+      <button class="btn-new-user" onclick="loginShowCreate()">＋ Crear perfil</button>
+    </div>
+
+    <!-- Vista: crear perfil (oculta por defecto) -->
+    <div id="loginViewCreate" style="display:none;width:100%">
+      <div class="login-sub">Nuevo perfil</div>
+      <div class="form-group" style="text-align:left;margin-bottom:14px">
+        <label class="form-label">Nombre *</label>
+        <input class="form-control" id="uNombreLogin" placeholder="Ej. Eduardo Rivas" autocomplete="off" style="font-size:16px">
+      </div>
+      <div class="form-group" style="text-align:left;margin-bottom:14px">
+        <label class="form-label">Email (opcional)</label>
+        <input class="form-control" id="uEmailLogin" type="email" placeholder="usuario@correo.com" style="font-size:16px">
+      </div>
+      <div class="form-group" style="text-align:left;margin-bottom:20px">
+        <label class="form-label">Color</label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px" id="loginColorPicker">
+          <div class="color-swatch selected" style="background:#FF6B35" onclick="loginSelectColor('#FF6B35',this)"></div>
+          <div class="color-swatch" style="background:#3498db" onclick="loginSelectColor('#3498db',this)"></div>
+          <div class="color-swatch" style="background:#2ecc71" onclick="loginSelectColor('#2ecc71',this)"></div>
+          <div class="color-swatch" style="background:#9b59b6" onclick="loginSelectColor('#9b59b6',this)"></div>
+          <div class="color-swatch" style="background:#e74c3c" onclick="loginSelectColor('#e74c3c',this)"></div>
+          <div class="color-swatch" style="background:#f39c12" onclick="loginSelectColor('#f39c12',this)"></div>
+          <div class="color-swatch" style="background:#1abc9c" onclick="loginSelectColor('#1abc9c',this)"></div>
+          <div class="color-swatch" style="background:#e91e63" onclick="loginSelectColor('#e91e63',this)"></div>
+        </div>
+        <input type="hidden" id="uColorLogin" value="#FF6B35">
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-secondary" style="flex:1" onclick="loginShowSelect()">Cancelar</button>
+        <button class="btn btn-primary" style="flex:2" onclick="loginCrearUsuario()">Crear perfil</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== APP ===== -->
+<div id="app">
+
+  <!-- TOP BAR (mobile) -->
+  <div id="topBar">
+    <div class="topbar-left">
+      <div class="topbar-avatar" id="topbarAvatar" onclick="logout()"></div>
+      <div class="topbar-title" id="topbarTitle">✈️ <span>Viajes</span></div>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-viaje" id="topbarViaje" onclick="navTo('viajes')">Sin viaje</div>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div id="main">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="pageDashboard">
+      <div class="page-content">
+        <div id="dashNoViaje" class="empty-state" style="display:none">
+          <div class="es-icon">🌍</div>
+          <h3>¡Bienvenido!</h3>
+          <p>Crea tu primer viaje para comenzar a registrar gastos y eventos</p>
+          <button class="btn btn-primary btn-full" onclick="showModal('modalViaje')">+ Crear viaje</button>
+        </div>
+        <div id="dashContent">
+          <div class="stats-grid" id="dashStats"></div>
+          <div class="card" id="dashPresupuestoCard" style="margin-bottom:12px"></div>
+          <div class="section-header"><div class="section-title">💸 Gastos recientes</div><div class="section-action" onclick="navTo('gastos')">Ver todos →</div></div>
+          <div id="dashGastos"></div>
+          <div class="section-header"><div class="section-title">📅 Próximos eventos</div><div class="section-action" onclick="navTo('eventos')">Ver todos →</div></div>
+          <div id="dashEventos"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIAJES -->
+    <div class="page" id="pageViajes">
+      <div class="page-content">
+        <div class="tabs-scroll" id="viajesTabs">
+          <button class="tab-pill active" onclick="switchViajesTab('activos',this)">Activos / Planificados</button>
+          <button class="tab-pill" onclick="switchViajesTab('completados',this)">Completados</button>
+        </div>
+        <div id="viajesLista"></div>
+      </div>
+    </div>
+
+    <!-- GASTOS -->
+    <div class="page" id="pageGastos">
+      <div class="page-content">
+        <div id="gastosPresupuesto" class="card" style="margin-bottom:12px"></div>
+        <div class="tabs-scroll">
+          <button class="tab-pill active" onclick="switchGastosTab('todos',this)">Todos</button>
+          <button class="tab-pill" onclick="switchGastosTab('comida',this)">🍔 Comida</button>
+          <button class="tab-pill" onclick="switchGastosTab('transporte',this)">🚗 Transporte</button>
+          <button class="tab-pill" onclick="switchGastosTab('hospedaje',this)">🏨 Hospedaje</button>
+          <button class="tab-pill" onclick="switchGastosTab('vuelos',this)">✈️ Vuelos</button>
+          <button class="tab-pill" onclick="switchGastosTab('tren',this)">🚂 Tren</button>
+          <button class="tab-pill" onclick="switchGastosTab('vehiculo',this)">🚙 Vehículo</button>
+          <button class="tab-pill" onclick="switchGastosTab('otro',this)">➕ Otro</button>
+        </div>
+        <div id="gastosLista"></div>
+      </div>
+    </div>
+
+    <!-- DEUDAS -->
+    <div class="page" id="pageDeudas">
+      <div class="page-content">
+        <div id="deudasContent"></div>
+      </div>
+    </div>
+
+    <!-- DOCUMENTOS -->
+    <div class="page" id="pageDocumentos">
+      <div class="page-content">
+        <div class="tabs-scroll">
+          <button class="tab-pill active" onclick="switchDocsTab('todos',this)">Todos</button>
+          <button class="tab-pill" onclick="switchDocsTab('boarding',this)">✈️ Boarding</button>
+          <button class="tab-pill" onclick="switchDocsTab('hotel',this)">🏨 Hotel</button>
+          <button class="tab-pill" onclick="switchDocsTab('vehiculo',this)">🚗 Vehículo</button>
+          <button class="tab-pill" onclick="switchDocsTab('restaurante',this)">🍽️ Restaurante</button>
+          <button class="tab-pill" onclick="switchDocsTab('otro',this)">📁 Otro</button>
+        </div>
+        <div class="doc-grid" id="docsGrid"></div>
+      </div>
+    </div>
+
+    <!-- EVENTOS -->
+    <div class="page" id="pageEventos">
+      <div class="page-content">
+        <div id="eventosLista"></div>
+      </div>
+    </div>
+
+    <!-- USUARIOS -->
+    <div class="page" id="pageUsuarios">
+      <div class="page-content">
+        <div class="doc-grid" id="usuariosGrid"></div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+
+  <!-- FAB -->
+  <button id="fab" onclick="fabAction()">＋</button>
+
+  <!-- BOTTOM NAV -->
+  <nav id="bottomNav">
+    <div class="bnav-item active" data-page="dashboard" onclick="navTo('dashboard')">
+      <span class="bnav-icon">🏠</span><span class="bnav-label">Inicio</span>
+    </div>
+    <div class="bnav-item" data-page="viajes" onclick="navTo('viajes')">
+      <span class="bnav-icon">🌍</span><span class="bnav-label">Viajes</span>
+    </div>
+    <div class="bnav-item" data-page="gastos" onclick="navTo('gastos')">
+      <span class="bnav-icon">💳</span><span class="bnav-label">Gastos</span>
+    </div>
+    <div class="bnav-item" data-page="eventos" onclick="navTo('eventos')">
+      <span class="bnav-icon">📅</span><span class="bnav-label">Eventos</span>
+      <span class="bnav-badge" id="eventoBadge" style="display:none">!</span>
+    </div>
+    <div class="bnav-item" onclick="openDrawer()">
+      <span class="bnav-icon">☰</span><span class="bnav-label">Más</span>
+    </div>
+  </nav>
+
+  <!-- DRAWER -->
+  <div id="drawerOverlay" onclick="closeDrawer()">
+    <div id="drawer">
+      <div class="drawer-handle"></div>
+      <div class="drawer-item" onclick="closeDrawer();navTo('deudas')"><span class="di-icon">⚖️</span>Balance de Deudas</div>
+      <div class="drawer-item" onclick="closeDrawer();navTo('documentos')"><span class="di-icon">📄</span>Documentos</div>
+      <div class="drawer-divider"></div>
+      <div class="drawer-item" onclick="closeDrawer();navTo('usuarios')"><span class="di-icon">👥</span>Usuarios</div>
+      <div class="drawer-item" onclick="closeDrawer();exportarEventos()"><span class="di-icon">🔔</span>Exportar notificaciones</div>
+      <div class="drawer-divider"></div>
+      <div class="drawer-item" onclick="closeDrawer();logout()"><span class="di-icon">⏻</span>Cambiar usuario</div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- ============= MODALES ============= -->
+
+<!-- Modal Usuario -->
+<div class="modal-overlay" id="modalUsuario" onclick="closeOnOverlay(event,'modalUsuario')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">👤 Nuevo usuario</div>
+      <button class="modal-close" onclick="closeModal('modalUsuario')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Nombre completo *</label>
+        <input class="form-control" id="uNombre" placeholder="Ej. Eduardo Rivas" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email (opcional)</label>
+        <input class="form-control" id="uEmail" type="email" placeholder="usuario@correo.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Color</label>
+        <div class="color-picker" id="colorPicker">
+          <div class="color-swatch selected" style="background:#FF6B35" onclick="selectColor('#FF6B35',this)"></div>
+          <div class="color-swatch" style="background:#3498db" onclick="selectColor('#3498db',this)"></div>
+          <div class="color-swatch" style="background:#2ecc71" onclick="selectColor('#2ecc71',this)"></div>
+          <div class="color-swatch" style="background:#9b59b6" onclick="selectColor('#9b59b6',this)"></div>
+          <div class="color-swatch" style="background:#e74c3c" onclick="selectColor('#e74c3c',this)"></div>
+          <div class="color-swatch" style="background:#f39c12" onclick="selectColor('#f39c12',this)"></div>
+          <div class="color-swatch" style="background:#1abc9c" onclick="selectColor('#1abc9c',this)"></div>
+          <div class="color-swatch" style="background:#e91e63" onclick="selectColor('#e91e63',this)"></div>
+        </div>
+        <input type="hidden" id="uColor" value="#FF6B35">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalUsuario')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarUsuario()">Crear</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Viaje -->
+<div class="modal-overlay" id="modalViaje" onclick="closeOnOverlay(event,'modalViaje')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">🌍 Nuevo viaje</div>
+      <button class="modal-close" onclick="closeModal('modalViaje')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Nombre del viaje *</label>
+        <input class="form-control" id="vNombre" placeholder="Ej. Vacaciones Europa 2025" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Destino</label>
+        <input class="form-control" id="vDestino" placeholder="Ej. París, Francia" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Inicio *</label>
+          <input class="form-control" id="vFechaInicio" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fin *</label>
+          <input class="form-control" id="vFechaFin" type="date">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Presupuesto *</label>
+          <input class="form-control" id="vPresupuesto" type="number" min="0" placeholder="0.00" inputmode="decimal">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Moneda</label>
+          <select class="form-control" id="vMoneda">
+            <option value="USD">USD $</option>
+            <option value="EUR">EUR €</option>
+            <option value="MXN">MXN $</option>
+            <option value="COP">COP $</option>
+            <option value="GTQ">GTQ Q</option>
+            <option value="HNL">HNL L</option>
+            <option value="GBP">GBP £</option>
+            <option value="CAD">CAD $</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Participantes</label>
+        <div class="participant-list" id="vParticipantesList"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notas</label>
+        <textarea class="form-control" id="vNotas" rows="2" placeholder="Itinerario, links, observaciones..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalViaje')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarViaje()">Crear viaje</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Gasto -->
+<div class="modal-overlay" id="modalGasto" onclick="closeOnOverlay(event,'modalGasto')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">💳 Registrar gasto</div>
+      <button class="modal-close" onclick="closeModal('modalGasto')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Descripción *</label>
+        <input class="form-control" id="gDesc" placeholder="Ej. Cena en restaurante" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Categoría</label>
+        <select class="form-control" id="gCategoria">
+          <option value="comida">🍔 Comida</option>
+          <option value="transporte">🚗 Transporte</option>
+          <option value="hospedaje">🏨 Hospedaje</option>
+          <option value="vuelos">✈️ Vuelos / Aerolínea</option>
+          <option value="golosinas">🍬 Golosinas / Snacks</option>
+          <option value="entretenimiento">🎡 Entretenimiento</option>
+          <option value="tren">🚂 Tren / Metro / Tranvía</option>
+          <option value="vehiculo">🚙 Renta de vehículo</option>
+          <option value="otro">➕ Otro</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Monto *</label>
+          <input class="form-control" id="gMonto" type="number" min="0" step="0.01" placeholder="0.00" inputmode="decimal">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Moneda</label>
+          <select class="form-control" id="gMoneda"></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Pagado por *</label>
+          <select class="form-control" id="gPagadoPor"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fecha</label>
+          <input class="form-control" id="gFecha" type="date">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Dividir entre</label>
+        <div class="participant-list" id="gParticipantesList"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Comprobante (opcional)</label>
+        <div class="upload-zone" onclick="document.getElementById('gComprobanteInput').click()">
+          <div style="font-size:28px">📎</div>
+          <p>Toca para subir imagen o PDF</p>
+        </div>
+        <input type="file" id="gComprobanteInput" accept="image/*,.pdf" style="display:none" onchange="handleGastoFile(event)">
+        <div id="gComprobantePreview" style="margin-top:8px"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalGasto')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarGasto()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Documento -->
+<div class="modal-overlay" id="modalDocumento" onclick="closeOnOverlay(event,'modalDocumento')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">📄 Subir documento</div>
+      <button class="modal-close" onclick="closeModal('modalDocumento')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Tipo *</label>
+        <select class="form-control" id="dTipo">
+          <option value="boarding">✈️ Boarding Pass</option>
+          <option value="hotel">🏨 Reserva de hotel</option>
+          <option value="vehiculo">🚗 Renta de vehículo</option>
+          <option value="restaurante">🍽️ Reserva de restaurante</option>
+          <option value="tren">🚂 Tren / Tranvía / Metro</option>
+          <option value="seguro">🛡️ Seguro de viaje</option>
+          <option value="visa">📋 Visa / Pasaporte</option>
+          <option value="otro">📁 Otro</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nombre *</label>
+        <input class="form-control" id="dNombre" placeholder="Ej. Boarding Pass CDMX→CDG" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Fecha</label>
+          <input class="form-control" id="dFecha" type="date">
+        </div>
+        <div class="form-group" style="display:flex;flex-direction:column;justify-content:flex-end">
+          &nbsp;
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form        <label class="form-label">Archivo (PDF, imagen)</label>
+        <input class="form-control" id="dArchivo" type="file" accept="image/*,.pdf" onchange="previewFile('doc',this)">
+        <div id="docPreview" style="margin-top:8px"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalDocumento')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarDocumento()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Evento -->
+<div class="modal-overlay" id="modalEvento" onclick="closeOnOverlay(event,'modalEvento')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">📅 Agregar evento</div>
+      <button class="modal-close" onclick="closeModal('modalEvento')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Tipo *</label>
+        <select class="form-control" id="eTipo">
+          <option value="vuelo">✈️ Vuelo</option>
+          <option value="hotel">🏨 Check-in hotel</option>
+          <option value="checkout">🏨 Check-out hotel</option>
+          <option value="vehiculo">🚗 Renta de vehículo</option>
+          <option value="restaurante">🍽️ Reserva restaurante</option>
+          <option value="tren">🚂 Tren / Bus</option>
+          <option value="tour">🗺️ Tour / Excursión</option>
+          <option value="traslado">🚌 Traslado</option>
+          <option value="otro">📌 Otro</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Título *</label>
+        <input class="form-control" id="eTitulo" placeholder="Ej. Vuelo CDMX→París" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fecha y hora *</label>
+        <input class="form-control" id="eFechaHora" type="datetime-local">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Lugar</label>
+        <input class="form-control" id="eLugar" placeholder="Ej. Aeropuerto AICM T1" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descripción</label>
+        <textarea class="form-control" id="eDesc" rows="2" placeholder="Notas adicionales..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Archivo adjunto</label>
+        <input class="form-control" id="eArchivo" type="file" accept="image/*,.pdf" onchange="previewFile('evento',this)">
+        <div id="eventoPreview" style="margin-top:8px"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalEvento')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarEvento()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Ver Documento -->
+<div class="modal-overlay" id="modalVerDoc" onclick="closeOnOverlay(event,'modalVerDoc')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="verDocTitulo">Documento</div>
+      <button class="modal-close" onclick="closeModal('modalVerDoc')">×</button>
+    </div>
+    <div class="modal-body" id="verDocBody" style="padding:0;min-height:300px"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
+econdary" onclick="closeModal('modalEvento')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarEvento()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Ver Documento -->
+<div class="modal-overlay" id="modalVerDoc" onclick="closeOnOverlay(event,'modalVerDoc')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="verDocTitulo">Documento</div>
+      <button class="modal-close" onclick="closeModal('modalVerDoc')">×</button>
+    </div>
+    <div class="modal-body" id="verDocBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" id="verDocDeleteBtn">🗑️ Eliminar</button>
+      <button class="btn btn-secondary" onclick="closeModal('modalVerDoc')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
